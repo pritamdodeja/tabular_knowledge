@@ -45,6 +45,7 @@ def df_metadata(df, numerical_threshold=50):
         {'variable': list_of_variables, 'dtype': list_of_dtypes,
          'is_numerical': is_numerical_init,
          'unique_value_counts': unique_value_counts})
+    metadata_frame['dtype'] = metadata_frame['dtype'].astype('string')
     null_sum = df.isnull().sum()
     null_sum.name = 'null_sum'
     metadata_frame = pd.merge(
@@ -122,13 +123,20 @@ def compute_mutual_information(df, target_label, meta_df, random_state, return_d
 
     # Transform df
     if transform:
+        categorical_imputer = SimpleImputer(strategy='most_frequent', add_indicator=add_indicator)
+        categorical_pipeline = Pipeline([
+            ('categorical_imputer', categorical_imputer),
+            ('OneHotEncoder', OneHotEncoder()),
+
+    ])
         imputation_preprocessor = ColumnTransformer(
             [('numerical_imputer',
               SimpleImputer(strategy='median', add_indicator=add_indicator),
               numerical_features),
-             ('categorical_imputer',
-              SimpleImputer(strategy='most_frequent', add_indicator=add_indicator),
-              categorical_features)],
+         ('categorical_pipeline',
+          categorical_pipeline,
+          categorical_features)
+         ],
             remainder='passthrough')
 
         # We need to figure out the indices to the features that are supposed to be scaled and encoded by the next
@@ -139,9 +147,9 @@ def compute_mutual_information(df, target_label, meta_df, random_state, return_d
         categorical_feature_indices = np.zeros(len(categorical_features))
         numerical_feature_indices = np.zeros(len(numerical_features))
 
-        for position, feature in enumerate(categorical_features):
-            categorical_feature_indices[position] = np.where(
-                feature_name_np_array == 'categorical_imputer__' + feature)[0]
+        # for position, feature in enumerate(categorical_features):
+        #     categorical_feature_indices[position] = np.where(
+        #         feature_name_np_array == 'categorical_pipeline__' + feature)[0]
 
         for position, feature in enumerate(numerical_features):
             numerical_feature_indices[position] = np.where(
@@ -153,7 +161,7 @@ def compute_mutual_information(df, target_label, meta_df, random_state, return_d
 
         numeric_and_categorical_transformer = ColumnTransformer(
             [('OneHotEncoder', OneHotEncoder(),
-              categorical_feature_indices),
+              []),
              # ('StandardScaler', StandardScaler(),
              #  numerical_feature_indices)
              ],
@@ -252,5 +260,31 @@ def visualize_mi_sampling(df):
     fig = px.scatter(data_frame=df.reset_index(), x='mean', y='std', log_x=True, log_y=True, color='index')
     fig.show()
     # }}}
+# {{{ visualize_df_metadata
+def visualize_df_metadata(df, x='variable', y='unique_value_counts', color='is_numerical'):
+    fig = px.bar(data_frame=df,
+                 x=x, y=y, log_y=True, color=color)
+    fig.show()
+    # }}}
+# {{{ Visualize histograms
+def visualize_histograms(df, variables, log_y=True):
+    if len(variables) == 1:
+        fig = px.histogram(data_frame=df[[variables]], facet_col='variable', log_y=log_y, )
+    else:
+        fig = px.histogram(data_frame=df[variables], facet_col='variable', log_y=log_y, )
+    fig.update_xaxes(matches=None)
+    # fig.update_yaxes(matches=None)
+    fig.show()
+# }}}
+# {{{ change variables to numerical
+def change_variable_type_to_numerical(meta_df, change_to_numerical_list):
+    meta_df.loc[meta_df['variable'].isin(change_to_numerical_list), 'is_numerical'] = True
+    # }}}
+# {{{ Visualize individual mi
+def visualize_mi_individual(df, target_label, x='index'):
+    fig = px.bar(data_frame=df.drop(labels=[target_label]).reset_index(),
+                 x=x, y='mutual_information',)
+    fig.show()
+# }}}
 if __name__ == '__main__':
     pass
