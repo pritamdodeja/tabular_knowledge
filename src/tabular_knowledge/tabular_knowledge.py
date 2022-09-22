@@ -97,7 +97,7 @@ def shorten_param(param_name):
 # Compute mutual information
 # Return mutual information
 
-def compute_mutual_information(df, target_label, meta_df, random_state, return_df=False, add_indicator=False, transform=True):
+def compute_mutual_information(df, target_label, meta_df, random_state, return_df=False, add_indicator=False, transform=True, n_neighbors=10):
     # Analyze data frame
     # meta_df = df_metadata(df, numerical_threshold=numerical_threshold)
     target_is_numerical = meta_df.loc[meta_df.variable == target_label][
@@ -178,7 +178,7 @@ def compute_mutual_information(df, target_label, meta_df, random_state, return_d
         preprocessed_feature_names = df.columns.tolist()
     target_series = df[target_label]
     estimated_mutual_information = mutual_information_function(
-        X=df_transformed, y=df[target_label].astype(int), random_state=random_state, n_neighbors=10)
+        X=df_transformed, y=df[target_label].astype(int), random_state=random_state, n_neighbors=n_neighbors)
     estimated_mutual_information_df = pd.DataFrame(
         estimated_mutual_information.T.reshape(
             1, -1), columns=preprocessed_feature_names)
@@ -231,6 +231,26 @@ def get_df(pipe, data):
             columns=pipe.get_feature_names_out()).rename(
             shorten_param,
             axis=1)
+    # }}}
+# {{{ mi_sampling
+def mi_sampling(df, target_label, meta_df, n_neighbors, number_of_runs=2, transform=False):
+    transformed_mi_list = []
+    for seed in range(number_of_runs):
+        summarized_mi_df = compute_mutual_information(df=df, target_label=target_label, random_state=seed, meta_df = meta_df, return_df=False, add_indicator=False, transform=transform)
+        summarized_mi_df.columns = [f'mutual_information_run_{seed}']
+        transformed_mi_list.append(summarized_mi_df)
+    merged_mi_df = transformed_mi_list[0].copy()
+    for run in range(1, number_of_runs):
+        merged_mi_df = merged_mi_df.merge(transformed_mi_list[run], left_index=True, right_index=True)
+    summarized_mi_df = pd.DataFrame()
+    summarized_mi_df['mean'] = merged_mi_df.T.mean()
+    summarized_mi_df['std'] = merged_mi_df.T.std()
+    return summarized_mi_df
+# }}}
+# {{{ Visualize mi sampling
+def visualize_mi_sampling(df):
+    fig = px.scatter(data_frame=df.reset_index(), x='mean', y='std', log_x=True, log_y=True, color='index')
+    fig.show()
     # }}}
 if __name__ == '__main__':
     pass
