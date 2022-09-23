@@ -331,5 +331,24 @@ def visualize_mi_dispersion(mi_details_df, meta_df):
     fig.update_yaxes(categoryorder='array', categoryarray=sorted_columns)
     fig.show()
     # }}}
+# {{{ Visualize 3d sampling
+def visualize_3d_sampling(df, meta_df, n_clusters=5):
+    df_copy = df.copy()
+    categorical_features = meta_df.loc[meta_df.is_numerical == False, ].index.tolist()
+    # Create a regular expression that matches those
+    categorical_features_regex = [feature + '.*' for feature in categorical_features]
+    categorical_features_regex = "|".join(categorical_features_regex)
+    # Enrich df with a boolean 'is_numerical' 
+    df_copy['is_numerical'] = True
+    df_copy.index = df_copy.index.astype('string')
+    df_copy.loc[df_copy.filter(regex=categorical_features_regex, axis=0).index, ['is_numerical']] = False
+    from sklearn.cluster import KMeans
+    mykmeans = KMeans(n_clusters=n_clusters)
+    mykmeans.fit(df_copy[['mean', 'std', 'median']])
+    df_copy['cluster'] = mykmeans.predict(df_copy[['mean', 'std', 'median']])
+    fig = px.scatter_3d(data_frame=df_copy.reset_index(), x='mean', y='std', z='median'
+               , log_x=True, log_y=True, log_z=True, hover_data=['index', 'cluster'], color ='is_numerical', )
+    fig.show()
+    # }}}
 if __name__ == '__main__':
     pass
