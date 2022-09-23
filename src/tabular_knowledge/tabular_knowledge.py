@@ -46,23 +46,26 @@ def df_metadata(df, numerical_threshold=50):
          'is_numerical': is_numerical_init,
          'unique_value_counts': unique_value_counts})
     metadata_frame['dtype'] = metadata_frame['dtype'].astype('string')
+    metadata_frame.set_index(keys=['variable'], drop=True, inplace=True)
+    metadata_frame.index = metadata_frame.index.astype('string')
     null_sum = df.isnull().sum()
     null_sum.name = 'null_sum'
+    null_sum.index = metadata_frame.index
     metadata_frame = pd.merge(
         metadata_frame,
         null_sum,
-        left_on='variable',
+        left_index=True,
         right_index=True)
     metadata_frame['samples_missing'] = metadata_frame['null_sum'] > 0
     total_samples = len(df)
     metadata_frame['percent_missing'] = metadata_frame['null_sum'] / total_samples
     for feature in categorical_features:
-        metadata_frame.loc[metadata_frame.variable ==
+        metadata_frame.loc[metadata_frame.index ==
                            feature, ['is_numerical']] = False
     for feature in numerical_features:
         if df[feature].nunique() < numerical_threshold:
             # print(f"Updating feature {feature}")
-            metadata_frame.loc[metadata_frame.variable ==
+            metadata_frame.loc[metadata_frame.index ==
                                feature, ['is_numerical']] = False
     return metadata_frame
 # }}}
@@ -101,7 +104,7 @@ def shorten_param(param_name):
 def compute_mutual_information(df, target_label, meta_df, random_state, return_df=False, add_indicator=False, transform=True, n_neighbors=10):
     # Analyze data frame
     # meta_df = df_metadata(df, numerical_threshold=numerical_threshold)
-    target_is_numerical = meta_df.loc[meta_df.variable == target_label][
+    target_is_numerical = meta_df.loc[meta_df.index == target_label][
         'is_numerical'].iloc[0]
 
     # Determine problem type
@@ -113,8 +116,8 @@ def compute_mutual_information(df, target_label, meta_df, random_state, return_d
         mutual_information_function = mutual_info_classif
 
     # Select feature types
-    numerical_features = meta_df.loc[meta_df.is_numerical, 'variable'].tolist()
-    categorical_features = meta_df.loc[meta_df.is_numerical == False, 'variable'].tolist()
+    numerical_features = meta_df.loc[meta_df.is_numerical, ].index.tolist()
+    categorical_features = meta_df.loc[meta_df.is_numerical == False, ].index.tolist()
 
     # Remove target label from features
     for feature_list in [numerical_features, categorical_features]:
@@ -260,14 +263,23 @@ def mi_sampling(df, target_label, meta_df, n_neighbors, number_of_runs=2, transf
         return summarized_mi_df
 # }}}
 # {{{ Visualize mi sampling
-def visualize_mi_sampling(df):
-    fig = px.scatter(data_frame=df.reset_index(), x='mean', y='std', log_x=True, log_y=True, color='index')
+def visualize_mi_sampling(df, meta_df):
+    df_copy = df.copy()
+    categorical_features = meta_df.loc[meta_df.is_numerical == False, ].index.tolist()
+    # Create a regular expression that matches those
+    categorical_features_regex = [feature + '_.*' for feature in categorical_features]
+    categorical_features_regex = "|".join(categorical_features_regex)
+    # Enrich df with a boolean 'is_numerical' 
+    df_copy['is_numerical'] = True
+    df_copy.loc[df_copy.filter(regex=categorical_features_regex, axis=0).index, ['is_numerical']] = False
+    fig = px.scatter(data_frame=df_copy.reset_index(), x='mean', y='std', log_x=True, log_y=True, color='index', symbol='is_numerical')
+    fig.update_traces(marker=dict(size=18), selector=dict(mode='markers'))
     fig.show()
     # }}}
 # {{{ visualize_df_metadata
-def visualize_df_metadata(df, x='variable', y='unique_value_counts', color='is_numerical'):
+def visualize_df_metadata(df, y='unique_value_counts', color='is_numerical'):
     fig = px.bar(data_frame=df,
-                 x=x, y=y, log_y=True, color=color)
+                 x=df.index, y=y, log_y=True, color=color)
     fig.show()
     # }}}
 # {{{ Visualize histograms
@@ -282,14 +294,24 @@ def visualize_histograms(df, variables, log_y=True):
 # }}}
 # {{{ change variables to numerical
 def change_variable_type_to_numerical(meta_df, change_to_numerical_list):
-    meta_df.loc[meta_df['variable'].isin(change_to_numerical_list), 'is_numerical'] = True
+    meta_df.loc[meta_df.index.isin(change_to_numerical_list), 'is_numerical'] = True
     # }}}
 # {{{ Visualize individual mi
-def visualize_mi_individual(df, target_label, x='index'):
+def visualize_mi_individual(df, target_label, meta_df, x='index'):
     df_copy = df.reset_index().sort_values(by=['mutual_information'], ascending=False).set_index('index')
+    # Get all the categorical feature names from the metadata dataframe
+    categorical_features = meta_df.loc[meta_df.is_numerical == False, ].index.tolist()
+    # Create a regular expression that matches those
+    categorical_features_regex = [feature + '_.*' for feature in categorical_features]
+    categorical_features_regex = "|".join(categorical_features_regex)
+    # Enrich df with a boolean 'is_numerical' 
+    df_copy['is_numerical'] = True
+    df_copy.loc[df_copy.filter(regex=categorical_features_regex, axis=0).index, ['is_numerical']] = False
+    # Use that attribute to color the columns
     fig = px.bar(data_frame=df_copy.drop(labels=[target_label]).reset_index(),
-                 x=x, y='mutual_information',)
+                 x=x, y='mutual_information', color='is_numerical')
     fig.show()
+    return df_copy, categorical_features_regex
 # }}}
 if __name__ == '__main__':
     pass
