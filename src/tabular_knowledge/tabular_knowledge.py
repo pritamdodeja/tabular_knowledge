@@ -241,7 +241,7 @@ def get_df(pipe, data):
             axis=1)
     # }}}
 # {{{ mi_sampling
-def mi_sampling(df, target_label, meta_df, n_neighbors, number_of_runs=2, transform=False):
+def mi_sampling(df, target_label, meta_df, n_neighbors, number_of_runs=2, transform=False, return_detailed_df=False):
     transformed_mi_list = []
     for seed in range(number_of_runs):
         summarized_mi_df = compute_mutual_information(df=df, target_label=target_label, random_state=seed, meta_df = meta_df, return_df=False, add_indicator=False, transform=transform)
@@ -253,7 +253,11 @@ def mi_sampling(df, target_label, meta_df, n_neighbors, number_of_runs=2, transf
     summarized_mi_df = pd.DataFrame()
     summarized_mi_df['mean'] = merged_mi_df.T.mean()
     summarized_mi_df['std'] = merged_mi_df.T.std()
-    return summarized_mi_df
+    summarized_mi_df['median'] = merged_mi_df.T.median()
+    if return_detailed_df:
+        return summarized_mi_df, merged_mi_df
+    else:
+        return summarized_mi_df
 # }}}
 # {{{ Visualize mi sampling
 def visualize_mi_sampling(df):
@@ -282,7 +286,8 @@ def change_variable_type_to_numerical(meta_df, change_to_numerical_list):
     # }}}
 # {{{ Visualize individual mi
 def visualize_mi_individual(df, target_label, x='index'):
-    fig = px.bar(data_frame=df.drop(labels=[target_label]).reset_index(),
+    df_copy = df.reset_index().sort_values(by=['mutual_information'], ascending=False).set_index('index')
+    fig = px.bar(data_frame=df_copy.drop(labels=[target_label]).reset_index(),
                  x=x, y='mutual_information',)
     fig.show()
 # }}}
