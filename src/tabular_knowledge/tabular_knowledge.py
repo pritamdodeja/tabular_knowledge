@@ -313,5 +313,23 @@ def visualize_mi_individual(df, target_label, meta_df, x='index'):
     fig.show()
     return df_copy, categorical_features_regex
 # }}}
+# {{{ Visualize mi dispersion
+def visualize_mi_dispersion(mi_details_df, meta_df):
+    mi_coefficients_df = mi_details_df.copy()
+    mi_coefficients_unstacked_df = mi_coefficients_df.filter(regex='mutual_information.*', axis=1).unstack().reset_index()
+    mi_coefficients_unstacked_df.columns = ['run_number','variable',  'mutual_information']
+    mi_coefficients_unstacked_df['is_numerical'] = True
+    mi_coefficients_unstacked_df.loc[mi_coefficients_unstacked_df['variable'].isin(categorical_features), ['is_numerical']] = False
+    sorted_columns = list(mi_coefficients_df.median(axis=1).sort_values().index)
+    fig = px.box(
+    data_frame=mi_coefficients_unstacked_df,
+    orientation='h',
+        x='mutual_information',
+        y='variable',
+    log_x=True, color='is_numerical',
+    )
+    fig.update_yaxes(categoryorder='array', categoryarray=sorted_columns)
+    fig.show()
+    # }}}
 if __name__ == '__main__':
     pass
