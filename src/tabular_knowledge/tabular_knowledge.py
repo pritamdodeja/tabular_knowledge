@@ -319,6 +319,7 @@ def visualize_mi_dispersion(mi_details_df, meta_df):
     mi_coefficients_unstacked_df = mi_coefficients_df.filter(regex='mutual_information.*', axis=1).unstack().reset_index()
     mi_coefficients_unstacked_df.columns = ['run_number','variable',  'mutual_information']
     mi_coefficients_unstacked_df['is_numerical'] = True
+    categorical_features = meta_df.loc[meta_df.is_numerical == False, ].index.tolist()
     mi_coefficients_unstacked_df.loc[mi_coefficients_unstacked_df['variable'].isin(categorical_features), ['is_numerical']] = False
     sorted_columns = list(mi_coefficients_df.median(axis=1).sort_values().index)
     fig = px.box(
