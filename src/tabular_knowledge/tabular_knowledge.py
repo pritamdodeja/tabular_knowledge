@@ -311,7 +311,6 @@ def visualize_mi_individual(df, target_label, meta_df, x='index'):
     fig = px.bar(data_frame=df_copy.drop(labels=[target_label]).reset_index(),
                  x=x, y='mutual_information', color='is_numerical')
     fig.show()
-    return df_copy, categorical_features_regex
 # }}}
 # {{{ Visualize mi dispersion
 def visualize_mi_dispersion(mi_details_df, meta_df):
